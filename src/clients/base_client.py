@@ -40,6 +40,7 @@ class BaseGRPCClient:
         url: str = "0.0.0.0:8001",
         model_version: int = 1,
         hot_reloads: int = 5,
+        triton_params: dict = None,
         **kwargs
     ) -> None:
         
@@ -56,6 +57,14 @@ class BaseGRPCClient:
         self.cumulative_runtime = 0.0
         self.runtimes = []
         self.time_profile = False
+        self.batch_size = 1
+        
+        self.triton_params = triton_params
+        if triton_params:
+            self.triton_params_dtypes = []
+            
+            for key, float_value in self.triton_params.items():
+                self.triton_params[key] = np.array([[float_value]], dtype = np.float32)
         
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -113,6 +122,11 @@ class BaseGRPCClient:
             table.add_row('      Dims', f'{config["dims"]}')
             if 'reshape' in config:
                 table.add_row('      Reshape', f'{config["reshape"]}')
+            
+
+            if self.triton_params and config['name'] in self.triton_params:
+                self.triton_params_dtypes.append(config["dataType"].replace("TYPE_", ""))
+
         table.add_row()
 
         for config in self.output_config:        
@@ -131,24 +145,40 @@ class BaseGRPCClient:
             model_config.output,
         )
 
-    def preprocess(self, *inputs):
-        preprocessed = []
-        for x, config in zip(inputs, self.input_config):
-            x = x.astype(triton_to_np_dtype(config["dataType"].replace("TYPE_", "")))
-            preprocessed.append(x)
+    # def cast_metadata(self, *inputs):
+    #     preprocessed = []
+    #     for x, config in zip(inputs, self.input_config):
+    #         x = x.astype(triton_to_np_dtype(config["dataType"].replace("TYPE_", "")))
+    #         preprocessed.append(x)
 
-        return preprocessed[0] if len(preprocessed) == 1 else preprocessed
-    
+    #     return preprocessed[0] if len(preprocessed) == 1 else preprocessed
+
+    def preprocess(self, input_batch, input_batch_idx):
+        return input_batch
+
     def generate_request(self, *input_batches):
         self.inputs = []
 
-        for config, input_batch in zip(self.input_config, input_batches):
+        for input_batch_idx, (config, input_batch) in enumerate(zip(self.input_config, input_batches)):
             if not isinstance(input_batch, np.ndarray):
                 input_batch = np.array(input_batch)
             
-            infer_inputs = grpcclient.InferInput(config['name'], input_batch.shape, config['dataType'].replace("TYPE_", ""))
-            infer_inputs.set_data_from_numpy(input_batch)
+            self.preprocess(input_batch, input_batch_idx)
+
+            dtype = config["dataType"].replace("TYPE_", "")
+            infer_inputs = grpcclient.InferInput(config['name'], input_batch.shape, dtype)
+            infer_inputs.set_data_from_numpy(input_batch.astype(triton_to_np_dtype(dtype)))
             self.inputs.append(infer_inputs)
+        
+        self.batch_size = input_batch.shape[0]
+    
+    def add_triton_params(self):
+        if self.triton_params:
+            for (param_name, param_np_array), dtype in zip(self.triton_params.items(), self.triton_params_dtypes):
+                parma_batch = np.repeat(param_np_array, repeats = self.batch_size, axis = 0)
+                infer_inputs = grpcclient.InferInput(param_name, parma_batch.shape, dtype)
+                infer_inputs.set_data_from_numpy(parma_batch.astype(triton_to_np_dtype(dtype)))
+                self.inputs.append(infer_inputs)
     
     def _get_benchmark_table(self):
         benchmark_table = Table(title = f'{self.model_name.replace("_", " ").title()} Benchmarks Statistics', min_width = 50, title_justify = 'left', title_style = 'purple3')
@@ -162,6 +192,7 @@ class BaseGRPCClient:
             start = time.perf_counter()
 
         self.generate_request(*input_batches)
+        self.add_triton_params()
         self.request_id += 1
 
         response = self.triton_client.infer(
@@ -170,6 +201,18 @@ class BaseGRPCClient:
             request_id = str(self.request_id),
             model_version = self.model_version
         )
+
+        del self.inputs
+
+        outputs = []
+        
+        for config in self.output_config:
+            outputs.append(response.as_numpy(config['name']))
+        
+        if len(outputs) == 1:
+            result = self.postprocess(outputs[0])
+        else:
+            result = self.postprocess(*outputs)
 
         if self.time_profile and self.request_id >= self.hot_reloads:
             took = time.perf_counter() - start
@@ -188,17 +231,12 @@ class BaseGRPCClient:
             
             self._live.update(benchmark_table)
         
-        outputs = []
-        
-        for config in self.output_config:
-            outputs.append(response.as_numpy(config['name']))
-
-        if len(outputs) == 1:
-            return self.postprocess(outputs[0])
-        
-        return self.postprocess(*outputs)
+        return result
     
-    def postprocess(self, outputs):
+    def postprocess(self, *outputs):
+        if len(outputs) == 1:
+            return outputs[0]
+
         return outputs
     
     def monitor_performance(self):

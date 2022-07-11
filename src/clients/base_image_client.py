@@ -78,10 +78,11 @@ class BaseImageGRPCClient(BaseGRPCClient):
         elif c == 1:
             return np.expand_dims(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), 0)
 
-    def preprocess(self, image):
-        image = self.cast_triton_shape(image)
-        image = self.cast_triton_channels(image)
-        image = self.cast_triton_dtype(image)
-        image = to_channel_first_layout(image)
+    def preprocess(self, input_batch, input_batch_idx):
+        if input_batch_idx == 0:
+            image = self.cast_triton_shape(image)
+            image = self.cast_triton_channels(image)
+            image = self.cast_triton_dtype(image)
+            image = to_channel_first_layout(image)
         
         return image
