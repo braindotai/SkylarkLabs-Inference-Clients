@@ -1,4 +1,5 @@
 from triton_inference_clients.production_clients import BatchSimilarityGRPCClient
+
 import numpy as np
 
 def test_batch_similarity():

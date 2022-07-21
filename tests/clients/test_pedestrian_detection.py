@@ -36,6 +36,7 @@ def test_pedestrian_detection():
         if len(batch_boxes):
             for (top_left, bottom_right), label in zip(batch_boxes[0], batch_labels[0]):
                 if label == 0:
+                    top_left, bottom_right = (int(top_left[0] * 1280), int(top_left[1] * 720)), (int(bottom_right[0] * 1280), int(bottom_right[1] * 720))
                     utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Pedestrian', color = 'red')
                 #     cv2.rectangle(frame, top_left, bottom_right, [0, 0, 255], 2)
 
@@ -60,6 +61,7 @@ def test_pedestrian_detection():
         for idx, (image, boxes, labels) in enumerate(zip(input_batch, batch_boxes, batch_labels)):
             for (top_left, bottom_right), label in zip(boxes, labels):
                 if label == 0:
+                    top_left, bottom_right = (int(top_left[0] * 1280), int(top_left[1] * 720)), (int(bottom_right[0] * 1280), int(bottom_right[1] * 720))
                     utils.draw_bounding_box(image, top_left, bottom_right, label = 'Pedestrian', color = 'red')
 
             cv2.imwrite(os.path.join('tests', 'assets', 'images', 'outputs', f'pedestrian_detection{idx + 1}.jpg'), image)

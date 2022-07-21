@@ -33,6 +33,9 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
             self.triton_params['resize_dim'] = self.triton_params['resize_dim'] - remainder + 32
         else:
             self.triton_params['resize_dim'] = self.triton_params['resize_dim']
+        
+        self.original_height = triton_params['original_height']
+        self.original_width = triton_params['original_width']
 
 
     def generate_request(self, *input_batches):
@@ -55,4 +58,13 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
     def postprocess(self, batch_boxes, batch_labels):
         split_indices = np.where(batch_labels == -1)[0]
         
-        return np.split(batch_boxes, split_indices)[:-1], np.split(batch_labels, split_indices)[:-1]
+        batch_boxes, batch_labels = np.split(batch_boxes, split_indices)[:-1], np.split(batch_labels, split_indices)[:-1]
+
+        # batch_boxes[:, 0, 0] *= self.original_width
+        # batch_boxes[:, 0, 1] *= self.original_height
+        
+        # batch_boxes[:, 1, 0] *= self.original_width
+        # batch_boxes[:, 1, 1] *= self.original_height
+
+        return batch_boxes, batch_labels
+

@@ -5,37 +5,10 @@ from google.protobuf.json_format import MessageToDict
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import InferenceServerException, triton_to_np_dtype
 
-import time
-
-from rich.live import Live
 from rich.table import Table
-from rich.console import Console, Group
+from rich.console import Console
 
-
-rich_render_group = Group
-
-
-class PerformanceMonitor:
-    def __init__(self, client) -> None:
-        self.client = client
-
-
-    def __enter__(self):
-        self.client.console.rule(f'⚡ Starting performence benchmark ⚡', style = 'white')
-        self.client.time_profile = True
-
-        self.start = time.perf_counter()
-        benchmark_table = self.client._get_benchmark_table()
-        self.client._live = Live(benchmark_table, refresh_per_second = 20)
-        self.client._live.start(True)
-    
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.client._live.stop()
-        self.client.time_profile = False
-        
-        self.client.console.rule(f'✅ Benchmark Completed in: {time.perf_counter() - self.start:.4f} ✅', style = 'white')
-        print()
+import time
 
 
 class BaseGRPCClient:
@@ -44,7 +17,6 @@ class BaseGRPCClient:
         model_name: str,
         url: str = "0.0.0.0:8001",
         model_version: int = 1,
-        hot_reloads: int = 5,
         triton_params: dict = None,
         **kwargs
     ) -> None:
@@ -57,11 +29,6 @@ class BaseGRPCClient:
         self.model_version = str(model_version)
         self.inputs = None
         self.request_id = -1
-        self.hot_reloads = hot_reloads
-        self.benchmark_performance_stats = None
-        self.cumulative_runtime = 0.0
-        self.runtimes = []
-        self.time_profile = False
         self.batch_size = 1
         
         self.triton_params = triton_params
@@ -187,23 +154,7 @@ class BaseGRPCClient:
                 self.inputs.append(infer_inputs)
     
 
-    def _get_benchmark_table(self):
-        benchmark_table = Table(
-            title = f'{self.model_name.replace("_", " ").title()} Benchmarks Statistics',
-            min_width = 50,
-            title_justify = 'left',
-            title_style = 'purple3'
-        )
-        benchmark_table.add_column("Stats Metric", justify = 'right', style = 'cyan')
-        benchmark_table.add_column("Seconds", style = 'spring_green3')
-
-        return benchmark_table
-    
-
     def perform_inference(self, *input_batches, instance_triton_params = None):
-        if self.time_profile:
-            start = time.perf_counter()
-
         self.generate_request(*input_batches)
         self.add_triton_params(instance_triton_params)
         self.request_id += 1
@@ -215,7 +166,7 @@ class BaseGRPCClient:
             model_version = self.model_version
         )
 
-        # del self.inputs
+        del self.inputs
 
         outputs = []
         
@@ -226,32 +177,6 @@ class BaseGRPCClient:
             result = self.postprocess(outputs[0])
         else:
             result = self.postprocess(*outputs)
-
-        if self.time_profile and self.request_id >= self.hot_reloads:
-            took = time.perf_counter() - start
-            self.runtimes.append(took)
-
-            a = np.array(self.runtimes)
-            self.runtimes = self.runtimes[-1000:]
-            self.cumulative_runtime = (0.9 * self.cumulative_runtime) + (0.1 * took)
-
-            benchmark_table = self._get_benchmark_table()
-            
-            self.benchmark_performance_stats = [
-                ('Mean', f'{a.mean():.8f}'),
-                ('Std', f'{a.std():.8f}'),
-                ('95%', f'{np.percentile(a, 95):.8f}'),
-                ('Min', f'{a.min():.8f}'),
-                ('Max', f'{a.max():.8f}'),
-                ('Median', f'{np.median(a):.8f}'),
-                ('Weighted', f'{self.cumulative_runtime:.8f}'),
-                ('Fps', f'{self.batch_size / took :.8f}'),
-            ]
-
-            for (metric_name, value) in self.benchmark_performance_stats:
-                benchmark_table.add_row(metric_name, value)
-            
-            self._live.update(benchmark_table)
         
         return result
     
@@ -261,7 +186,3 @@ class BaseGRPCClient:
             return outputs[0]
 
         return outputs
-    
-
-    def monitor_performance(self):
-        return PerformanceMonitor(self)

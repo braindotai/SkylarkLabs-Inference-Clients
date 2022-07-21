@@ -35,6 +35,7 @@ def test_long_range_pedestrian_detection():
         if len(batch_boxes):
             for (top_left, bottom_right), label in zip(batch_boxes[0], batch_labels[0]):
                 if label == 0:
+                    top_left, bottom_right = (int(top_left[0] * 1280), int(top_left[1] * 720)), (int(bottom_right[0] * 1280), int(bottom_right[1] * 720))
                     utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Long Range []', color = 'red')
 
         # video_reader.show(frame, pause = 5, resize = False, window_name = 'Face Detection')

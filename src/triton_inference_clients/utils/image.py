@@ -39,3 +39,7 @@ def cv2_imencode(image, quality = 50):
 
 def cv2_imdecode(encodings):
     return cv2.imdecode(encodings, 1)
+
+
+def resize_box(top_left, bottom_right, image_width_height):
+    return (int(top_left[0] * image_width_height[0]), int(top_left[1] * image_width_height[1])), (int(bottom_right[0] * image_width_height[0]), int(bottom_right[1] * image_width_height[1]))

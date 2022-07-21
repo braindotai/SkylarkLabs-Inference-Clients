@@ -53,7 +53,7 @@ class CV2ReadVideo:
                 (20, 35),
                 fontFace = 0,
                 fontScale = 0.7,
-                color = [55, 240, 0],
+                color = [200, 20, 0],
                 thickness = 2
             )
             cv2.putText(
@@ -68,7 +68,7 @@ class CV2ReadVideo:
             
         cv2.imshow(window_name, frame)
         # cv2.waitKey(int((1 / self.fps) * 1000))
-        cv2.waitKey(5)
+        cv2.waitKey(pause)
 
 
 class CV2WriteVideo:
