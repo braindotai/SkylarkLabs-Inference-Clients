@@ -10,7 +10,7 @@ class PerformanceMonitor:
     def __init__(self, pipeline, hot_reloads = 5) -> None:
         assert hasattr(pipeline, 'perform_inference')
         
-        setattr(pipeline, 'perform_inference',  self._monitor(pipeline.perform_inference))
+        setattr(pipeline, 'perform_inference', self._monitor(pipeline.perform_inference))
 
         self.hot_reloads = hot_reloads
         self.title = pipeline.__class__.__name__.title()

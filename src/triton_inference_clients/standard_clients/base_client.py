@@ -27,9 +27,7 @@ class BaseGRPCClient:
 
         self.model_name = model_name
         self.model_version = str(model_version)
-        self.inputs = None
         self.request_id = -1
-        self.batch_size = 1
         
         self.triton_params = triton_params
         if triton_params:
@@ -124,9 +122,7 @@ class BaseGRPCClient:
         return input_batch
 
 
-    def generate_request(self, *input_batches):
-        self.inputs = []
-
+    def generate_request(self, inputs, *input_batches):
         for input_batch_idx, (config, input_batch) in enumerate(zip(self.input_config, input_batches)):
             if not isinstance(input_batch, np.ndarray):
                 input_batch = np.array(input_batch)
@@ -136,37 +132,36 @@ class BaseGRPCClient:
             dtype = config["dataType"].replace("TYPE_", "")
             infer_inputs = grpcclient.InferInput(config['name'], input_batch.shape, dtype)
             infer_inputs.set_data_from_numpy(input_batch.astype(triton_to_np_dtype(dtype)))
-            self.inputs.append(infer_inputs)
+            inputs.append(infer_inputs)
 
-        self.batch_size = input_batch.shape[0]
-    
+        return input_batch.shape[0]
 
-    def add_triton_params(self, instance_triton_params):
+    def add_triton_params(self, inputs, batch_size, instance_triton_params):
         if self.triton_params:
             for (param_name, param_np_array_or_value), dtype in zip(self.triton_params.items(), self.triton_params_dtypes):
                 if instance_triton_params is not None and param_name in instance_triton_params:
-                    param_batch = np.array([[instance_triton_params[param_name]] * self.batch_size], dtype = np.float32)
+                    param_batch = np.array([[instance_triton_params[param_name]] * batch_size], dtype = np.float32)
                 else:
-                    param_batch = np.repeat(param_np_array_or_value, repeats = self.batch_size, axis = 0)
+                    param_batch = np.repeat(param_np_array_or_value, repeats = batch_size, axis = 0)
                 
                 infer_inputs = grpcclient.InferInput(param_name, param_batch.shape, dtype)
                 infer_inputs.set_data_from_numpy(param_batch.astype(triton_to_np_dtype(dtype)))
-                self.inputs.append(infer_inputs)
+                inputs.append(infer_inputs)
     
 
     def perform_inference(self, *input_batches, instance_triton_params = None):
-        self.generate_request(*input_batches)
-        self.add_triton_params(instance_triton_params)
+        inputs = []
+        batch_size = self.generate_request(inputs, *input_batches)
+        self.add_triton_params(inputs, batch_size, instance_triton_params)
         self.request_id += 1
 
         response = self.triton_client.infer(
             self.model_name,
-            self.inputs,
+            inputs,
             request_id = str(self.request_id),
             model_version = self.model_version
         )
 
-        del self.inputs
 
         outputs = []
         

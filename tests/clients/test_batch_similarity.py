@@ -11,3 +11,6 @@ def test_batch_similarity():
     assert a.shape == (10,)
     assert b.shape == (10,)
     assert c.shape == (10,)
+
+if __name__ == '__main__':
+    test_batch_similarity()

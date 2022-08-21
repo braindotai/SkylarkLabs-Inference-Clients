@@ -9,6 +9,9 @@ from .face_recognition import FaceRecognitionGRPCClient
 
 from .change_detection import ChangeDetectionLocalClient
 
+from .head_detection import HeadDetectionGRPCClient
+from .head_recognition import HeadRecognitionGRPCClient
+
 __all__ = [
     DaliDecoderGRPCClient,
     FaceDetectionGRPCClient,
@@ -17,4 +20,6 @@ __all__ = [
     BatchSimilarityGRPCClient,
     FaceRecognitionGRPCClient,
     ChangeDetectionLocalClient,
+    HeadDetectionGRPCClient,
+    HeadRecognitionGRPCClient,
 ]

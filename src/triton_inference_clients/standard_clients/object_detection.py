@@ -12,10 +12,10 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
             joined_encodings = None,
             split_indices = None,
 
-            original_height = 720,
             original_width = 1280,
+            original_height = 720,
             
-            resize_dim = 640,
+            resize_dim = 1280,
 
             iou_thres = 0.40,
             conf_thres = 0.2,
@@ -38,8 +38,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         self.original_width = triton_params['original_width']
 
 
-    def generate_request(self, *input_batches):
-        self.inputs = []
+    def generate_request(self, inputs, *input_batches):
         joined_encodings = []
         split_indices = []
 
@@ -52,13 +51,11 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         self.triton_params['joined_encodings'] = np.expand_dims(np.concatenate(joined_encodings, axis = 0), 0)
         self.triton_params['split_indices'] = np.expand_dims(np.array(split_indices), 0)
 
-        self.batch_size = len(input_batches[0])
+        return len(input_batches[0])
     
     
-    def postprocess(self, batch_boxes, batch_labels):
-        split_indices = np.where(batch_labels == -1)[0]
-        
-        batch_boxes, batch_labels = np.split(batch_boxes, split_indices)[:-1], np.split(batch_labels, split_indices)[:-1]
+    def postprocess(self, batch_boxes, batch_split_indices):
+        batch_boxes = np.split(batch_boxes, batch_split_indices)[:-1]
 
         # batch_boxes[:, 0, 0] *= self.original_width
         # batch_boxes[:, 0, 1] *= self.original_height
@@ -66,5 +63,4 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         # batch_boxes[:, 1, 0] *= self.original_width
         # batch_boxes[:, 1, 1] *= self.original_height
 
-        return batch_boxes, batch_labels
-
+        return batch_boxes

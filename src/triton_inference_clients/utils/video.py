@@ -35,7 +35,7 @@ class CV2ReadVideo:
     def show(
         self,
         frame: np.ndarray,
-        pause: int = 20,
+        pause: int = 5,
         window_name: str = 'Preview Output',
         resize: bool = True,
         show_fps = True,

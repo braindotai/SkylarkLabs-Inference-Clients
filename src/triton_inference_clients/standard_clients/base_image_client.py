@@ -4,8 +4,7 @@ from .base_client import BaseGRPCClient
 
 
 class BaseImageGRPCClient(BaseGRPCClient):
-    def generate_request(self, *input_batches):
-        self.inputs = []
+    def generate_request(self, inputs, *input_batches):
         joined_encodings = []
         split_indices = []
 
@@ -18,4 +17,4 @@ class BaseImageGRPCClient(BaseGRPCClient):
         self.triton_params['joined_encodings'] = np.expand_dims(np.concatenate(joined_encodings, axis = 0), 0)
         self.triton_params['split_indices'] = np.expand_dims(np.array(split_indices), 0)
 
-        # self.batch_size = len(input_batches[0])
+        return len(input_batches[0])

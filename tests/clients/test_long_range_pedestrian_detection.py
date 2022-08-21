@@ -30,15 +30,14 @@ def test_long_range_pedestrian_detection():
 
     for frame in video_reader.frames():
         input_batch = [frame]
-        batch_boxes, batch_labels = client.perform_inference(input_batch)
+        batch_boxes = client.perform_inference(input_batch)
         
         if len(batch_boxes):
-            for (top_left, bottom_right), label in zip(batch_boxes[0], batch_labels[0]):
-                if label == 0:
-                    top_left, bottom_right = (int(top_left[0] * 1280), int(top_left[1] * 720)), (int(bottom_right[0] * 1280), int(bottom_right[1] * 720))
-                    utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Long Range []', color = 'red')
+            for (top_left, bottom_right) in batch_boxes[0]:
+                top_left, bottom_right = utils.resize_box(top_left, bottom_right, (video_reader.width, video_reader.height))
+                utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Long Range []', color = 'red')
 
-        # video_reader.show(frame, pause = 5, resize = False, window_name = 'Face Detection')
+        video_reader.show(frame, pause = 5, resize = False, window_name = 'Face Detection')
 
         video_writer.write(frame)
 
@@ -48,3 +47,6 @@ def test_long_range_pedestrian_detection():
     # cv2.destroyAllWindows()
 
     video_writer.release()
+
+if __name__ == '__main__':
+    test_long_range_pedestrian_detection()

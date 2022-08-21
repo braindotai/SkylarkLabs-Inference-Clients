@@ -42,4 +42,17 @@ def cv2_imdecode(encodings):
 
 
 def resize_box(top_left, bottom_right, image_width_height):
-    return (int(top_left[0] * image_width_height[0]), int(top_left[1] * image_width_height[1])), (int(bottom_right[0] * image_width_height[0]), int(bottom_right[1] * image_width_height[1]))
+    return (
+        (
+            int(top_left[0] * image_width_height[0]),
+            int(top_left[1] * image_width_height[1])
+        ),
+        (
+            int(bottom_right[0] * image_width_height[0]),
+            int(bottom_right[1] * image_width_height[1])
+        )
+    )
+
+
+def crop_image(image, top_left, bottom_right):
+    return image[top_left[1]: bottom_right[1], top_left[0]: bottom_right[0]]
