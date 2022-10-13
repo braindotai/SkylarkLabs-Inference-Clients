@@ -36,7 +36,10 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         super().__init__(model_name = model_name, encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)
 
         if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
-            self.onnxruntime_session = ort.InferenceSession(os.path.join(self.repository_root, f'{self.model_name}_model', self.model_version, 'model.onnx'), providers = ['CPUExecutionProvider'])
+            self.onnxruntime_session = ort.InferenceSession(
+                os.path.join(self.repository_root, f'{self.model_name}_model', self.model_version, 'model.onnx'),
+                providers = ['CPUExecutionProvider']
+            )
 
         remainder = (self.inference_params['resize_dim'] % 32)
         
@@ -52,6 +55,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
     def generate_request(self, inputs, *input_batches):
         joined_encodings = []
         split_indices = []
+        inference_params = self.inference_params.copy()
 
         for cv2_image in input_batches[0]:
             encodings = cv2.imencode('.jpg', cv2_image, [int(cv2.IMWRITE_JPEG_QUALITY), self.encoding_quality])[1]
@@ -59,10 +63,13 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
 
             split_indices.append((split_indices[-1] if len(split_indices) else 0) + len(encodings))
         
-        self.inference_params['joined_encodings'] = np.expand_dims(np.concatenate(joined_encodings, axis = 0), 0)
-        self.inference_params['split_indices'] = np.expand_dims(np.array(split_indices), 0)
+        # self.inference_params['joined_encodings'] = np.expand_dims(np.concatenate(joined_encodings, axis = 0), 0) 
+        # self.inference_params['split_indices'] = np.expand_dims(np.array(split_indices), 0)
+        
+        inference_params['joined_encodings'] = np.expand_dims(np.concatenate(joined_encodings, axis = 0), 0) 
+        inference_params['split_indices'] = np.expand_dims(np.array(split_indices), 0)
 
-        return len(input_batches[0])
+        return len(input_batches[0]), inference_params
     
 
     def triton_postprocess(self, batch_boxes, batch_split_indices):
