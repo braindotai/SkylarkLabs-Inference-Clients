@@ -5,7 +5,7 @@ class PedestrianDetectionGRPCClient(ObjectDetectionGRPCClient):
     def __init__(
         self,
         encoding_quality = 50,
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 
@@ -22,4 +22,4 @@ class PedestrianDetectionGRPCClient(ObjectDetectionGRPCClient):
         ),
         **kwargs
     ):
-        super().__init__(model_name = 'pedestrian_detection', encoding_quality = encoding_quality, triton_params = triton_params, **kwargs)
+        super().__init__(model_name = 'pedestrian_detection', encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)

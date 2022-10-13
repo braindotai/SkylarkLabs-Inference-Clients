@@ -5,7 +5,7 @@ import os
 
 def test_change_detection():
     long_range_pedestrian_client = LongRangePedestrianDetectionGRPCClient(
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 
@@ -19,35 +19,39 @@ def test_change_detection():
             max_det = 1000,
             agnostic_nms = 0,
             multi_label = 0,
+
+            spatial_split = 0,
         )
     )
 
     change_detection_client = ChangeDetectionLocalClient(
-        threshold = 4,
-        max_value = 2,
+        threshold = 10,
+        max_value = 200,
     )
 
-    video_reader = utils.CV2ReadVideo(os.path.join('tests', 'assets', 'videos', 'inputs', 'long_range_video (0).mp4'))
+    video_reader = utils.CV2ReadVideo(os.path.join('tests', 'assets', 'videos', 'inputs', 'long_range_video (0).mp4'), sampling_fps = 14)
     video_writer = utils.CV2WriteVideo(os.path.join('tests', 'assets', 'videos', 'outputs', 'change_detection.mp4'), 640, 580)
 
     for frame in video_reader.frames():
-        input_batch = [frame]
         original_frame = frame.copy()
         
-        if video_reader.frame_idx > 5:
-            batch_boxes, batch_labels = long_range_pedestrian_client.perform_inference(input_batch)
-            if len(batch_boxes):
-                for (top_left, bottom_right), label in zip(batch_boxes[0], batch_labels[0]):
-                    utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Intruder', color = 'red')
+        # if video_reader.frame_idx > 5:
+        #     batch_boxes = long_range_pedestrian_client.perform_inference([frame])
+        #     if len(batch_boxes):
+        #         for (top_left, bottom_right) in batch_boxes[0]:
+        #             utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Intruder', color = 'red')
 
         # original_frame = cv2.resize(original_frame, (880, 720))
         original_frame = change_detection_client.perform_inference(original_frame, frame)
         
-        # video_reader.show(original_frame, resize = (640, 500), window_name = 'Change Detection')
+        video_reader.show(original_frame, resize = 1280, window_name = 'Change Detection')
         video_writer.write(original_frame)
 
-        if video_reader.frame_idx > 10:
-            break
+        # if video_reader.frame_idx > 10:
+        #     break
 
     video_writer.release()
-    # cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    test_change_detection()

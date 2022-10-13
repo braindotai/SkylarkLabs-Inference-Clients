@@ -7,7 +7,7 @@ import os
 
 def test_head_features():
     client = HeadRecognitionGRPCClient(
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 

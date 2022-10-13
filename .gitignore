@@ -3,3 +3,4 @@ venv
 *.egg*
 *.mp4*
 .tox
+*models*

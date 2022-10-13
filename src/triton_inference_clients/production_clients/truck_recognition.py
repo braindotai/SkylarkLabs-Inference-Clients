@@ -1,7 +1,7 @@
 from ..standard_clients.base_image_client import BaseImageGRPCClient
 
 
-class FaceRecognitionGRPCClient(BaseImageGRPCClient):
+class TruckRecognitionGRPCClient(BaseImageGRPCClient):
     def __init__(
         self,
         encoding_quality = 100,
@@ -11,4 +11,4 @@ class FaceRecognitionGRPCClient(BaseImageGRPCClient):
         ),
         **kwargs
     ):
-        super().__init__(model_name = 'face_recognition', encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)
+        super().__init__(model_name = 'truck_recognition', encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)

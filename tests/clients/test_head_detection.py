@@ -4,7 +4,7 @@ import os
 
 def test_head_detection():
     client = HeadDetectionGRPCClient(
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 

@@ -7,7 +7,7 @@ import cv2
 
 def test_long_range_pedestrian_detection():
     client = LongRangePedestrianDetectionGRPCClient(
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 
@@ -21,6 +21,8 @@ def test_long_range_pedestrian_detection():
             max_det = 1000,
             agnostic_nms = 0,
             multi_label = 0,
+
+            spatial_split = 0,
         )
     )
 

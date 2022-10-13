@@ -6,7 +6,7 @@ class BatchSimilarityGRPCClient(BaseGRPCClient):
         super().__init__(model_name = 'batch_similarity', **kwargs)
 
 
-    def postprocess(self, matched_indices, max_similarities, min_similarities):
+    def triton_postprocess(self, matched_indices, max_similarities, min_similarities):
         return (
             matched_indices.reshape(-1),
             max_similarities.reshape(-1),

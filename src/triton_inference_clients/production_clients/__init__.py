@@ -1,5 +1,3 @@
-from .dali_decoder import DaliDecoderGRPCClient
-
 from .face_detection import FaceDetectionGRPCClient
 from .pedestrian_detection import PedestrianDetectionGRPCClient
 from .long_range_pedestrian_detection import LongRangePedestrianDetectionGRPCClient
@@ -13,7 +11,6 @@ from .head_detection import HeadDetectionGRPCClient
 from .head_recognition import HeadRecognitionGRPCClient
 
 __all__ = [
-    DaliDecoderGRPCClient,
     FaceDetectionGRPCClient,
     PedestrianDetectionGRPCClient,
     LongRangePedestrianDetectionGRPCClient,

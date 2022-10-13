@@ -6,7 +6,7 @@ class HeadRecognitionGRPCClient(ObjectDetectionGRPCClient):
     def __init__(
         self,
         encoding_quality = 50,
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 
@@ -23,10 +23,10 @@ class HeadRecognitionGRPCClient(ObjectDetectionGRPCClient):
         ),
         **kwargs
     ):
-        super().__init__(model_name = 'head_recognition', encoding_quality = encoding_quality, triton_params = triton_params, **kwargs)
+        super().__init__(model_name = 'head_recognition', encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)
 
 
-    def postprocess(self, batch_features, batch_boxes, batch_split_indices):
+    def triton_postprocess(self, batch_features, batch_boxes, batch_split_indices):
         batch_boxes = np.split(batch_boxes, batch_split_indices)[:-1]
         batch_split_indices = np.split(batch_features, batch_split_indices)[:-1]
 

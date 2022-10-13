@@ -1,3 +1,7 @@
+import os
+os.environ['INFERENCE_TYPE'] = 'MONOLYTHIC_SERVER'
+# os.environ['INFERENCE_TYPE'] = 'TRITON_SERVER'
+
 from triton_inference_clients.production_clients import FaceDetectionGRPCClient
 from triton_inference_clients import utils
 
@@ -8,28 +12,33 @@ import cv2
 
 def test_face_detection():
     client = FaceDetectionGRPCClient(
-        triton_params = dict(
+        repository_root = os.path.join('tests', 'assets', 'models'),
+        encoding_quality = 90,
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 
             original_height = 720,
             original_width = 1280,
             
-            resize_dim = 1280,
+            resize_dim = 640,
 
-            conf_thres = 0.2,
+            conf_thres = 0.3,
             iou_thres = 0.4,
             max_det = 1000,
             agnostic_nms = 0,
             multi_label = 0,
+
+            spatial_split = 0,
         )
     )
 
-    video_reader = utils.CV2ReadVideo(os.path.join('tests', 'assets', 'videos', 'inputs', 'crowd.mp4'))
+    video_reader = utils.CV2ReadVideo(os.path.join('tests', 'assets', 'videos', 'inputs', 'crowd.mp4'), sampling_fps = 25)
     # video_writer = utils.CV2WriteVideo(os.path.join('tests', 'assets', 'videos', 'outputs', 'face_detection.mp4'), 1280, 720)
 
     for frame in video_reader.frames():
-        input_batch = [frame] * 10
+        # frame = cv2.resize(frame, (640, 384))
+        input_batch = [frame] * 1
         batch_boxes = client.perform_inference(input_batch)
         
         if len(batch_boxes):
@@ -37,7 +46,7 @@ def test_face_detection():
                 top_left, bottom_right = utils.resize_box(top_left, bottom_right, (video_reader.width, video_reader.height))
                 utils.draw_bounding_box(frame, top_left, bottom_right, label = 'Face', color = 'red')
 
-        video_reader.show(frame, pause = 5, resize = False, window_name = 'Face Detection')
+        video_reader.show(frame, pause = 1, resize = False, window_name = 'Face Detection', show_avg_fps_over = 20)
 
         # video_writer.write(frame)
 

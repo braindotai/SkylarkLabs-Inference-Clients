@@ -5,7 +5,7 @@ class LongRangePedestrianDetectionGRPCClient(ObjectDetectionGRPCClient):
     def __init__(
         self,
         encoding_quality = 50,
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
 
@@ -18,10 +18,12 @@ class LongRangePedestrianDetectionGRPCClient(ObjectDetectionGRPCClient):
             max_det = 1000,
             agnostic_nms = 0,
             multi_label = 0,
+
+            spatial_split = 0,
         ),
         **kwargs
     ):
-        super().__init__(model_name = 'long_range_pedestrian_detection', encoding_quality = encoding_quality, triton_params = triton_params, **kwargs)
+        super().__init__(model_name = 'long_range_pedestrian_detection', encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)
 
 
 # if __name__ == '__main__':
@@ -49,7 +51,7 @@ class LongRangePedestrianDetectionGRPCClient(ObjectDetectionGRPCClient):
 
 #     client = LongRangePedestrianDetectionGRPCClient(
 #         encoding_quality = 90,
-#         triton_params = dict(
+#         inference_params = dict(
 #             joined_encodings = None,
 #             split_indices = None,
 

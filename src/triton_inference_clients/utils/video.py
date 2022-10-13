@@ -20,6 +20,8 @@ class CV2ReadVideo:
         if self.sampling_rate != 1:
             self.fps = sampling_fps
         
+        self.avg_fps = 0
+        
     def frames(self):
         while True:
             has_frame, frame = self.cap.read()
@@ -39,12 +41,20 @@ class CV2ReadVideo:
         window_name: str = 'Preview Output',
         resize: bool = True,
         show_fps = True,
+        show_avg_fps_over = 0
     ) -> None:
         if resize:
             if isinstance(resize, tuple):
                 frame = cv2.resize(frame, resize)
             else:
                 frame = cv2.resize(frame, (1280, int(1280 * (self.height / self.width))))
+
+        if show_avg_fps_over and self.frame_idx == 0:
+            self.avg_fps_tic = time.time()
+        
+        if show_avg_fps_over and self.frame_idx % show_avg_fps_over == 0:
+            self.avg_fps = show_avg_fps_over / (time.time() - self.avg_fps_tic)
+            self.avg_fps_tic = time.time()
         
         if show_fps:
             cv2.putText(
@@ -63,6 +73,16 @@ class CV2ReadVideo:
                 fontFace = 0,
                 fontScale = 0.7,
                 color = [240, 55, 155],
+                thickness = 2
+            )
+
+            cv2.putText(
+                frame,
+                f'Average {show_avg_fps_over} FPS({self.avg_fps:.0f})',
+                (20, 105),
+                fontFace = 0,
+                fontScale = 0.7,
+                color = [240, 155, 20],
                 thickness = 2
             )
             

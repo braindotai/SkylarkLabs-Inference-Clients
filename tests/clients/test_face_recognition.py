@@ -4,7 +4,7 @@ import numpy as np
 
 def test_face_recognition():
     client = FaceRecognitionGRPCClient(
-        triton_params = dict(
+        inference_params = dict(
             joined_encodings = None,
             split_indices = None,
         )
