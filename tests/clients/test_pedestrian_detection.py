@@ -1,12 +1,14 @@
 import cv2
+import os
+os.environ['INFERENCE_TYPE'] = 'MONOLYTHIC_SERVER'
+
 from triton_inference_clients.production_clients import PedestrianDetectionGRPCClient
 from triton_inference_clients import utils
-
-import os
 
 
 def test_pedestrian_detection():
     client = PedestrianDetectionGRPCClient(
+        repository_root = os.path.join('tests', 'assets', 'models'),
         inference_params = dict(
             joined_encodings = None,
             split_indices = None,
@@ -32,7 +34,6 @@ def test_pedestrian_detection():
     for frame in video_reader.frames():
         frame = cv2.resize(frame, (640, 384))
         input_batch = [frame]
-        print(frame.shape)
         batch_boxes = client.perform_inference(input_batch)
         
         if len(batch_boxes):

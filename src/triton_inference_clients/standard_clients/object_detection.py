@@ -1,12 +1,12 @@
 import os
 import cv2
 import numpy as np
-import onnxruntime as ort
 
 from .base_client import BaseGRPCClient
 
 INFERENCE_TYPE = os.getenv('INFERENCE_TYPE', 'TRITON_SERVER')
 if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
+    import onnxruntime as ort
     import torch
     import torchvision
 
@@ -38,7 +38,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
             self.onnxruntime_session = ort.InferenceSession(
                 os.path.join(self.repository_root, f'{self.model_name}_model', self.model_version, 'model.onnx'),
-                providers = ['CPUExecutionProvider']
+                providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider'],
             )
 
         remainder = (self.inference_params['resize_dim'] % 32)
@@ -52,7 +52,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         self.original_width = inference_params['original_width']
 
 
-    def generate_request(self, inputs, *input_batches):
+    def triton_generate_request(self, inputs, *input_batches):
         joined_encodings = []
         split_indices = []
         inference_params = self.inference_params.copy()
@@ -279,7 +279,13 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
 
 
     def monolythic_inference(self, *input_batches, instance_inference_params = None):
-        input_batch = self.monolythic_preprocess(input_batches[0][0], self.inference_params['resize_dim'][0][0])
+        inference_params = self.inference_params.copy()
+
+        if instance_inference_params:
+            for key, value in instance_inference_params.items():
+                inference_params[key] = value
+
+        input_batch = self.monolythic_preprocess(input_batches[0][0], inference_params['resize_dim'][0][0])
 
         model_outputs = self.onnxruntime_session.run(
             [self.onnxruntime_session.get_outputs()[0].name],
@@ -288,14 +294,14 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
 
         batch_boxes = self.monolythic_postprocess(
             model_outputs,
-            self.inference_params['original_height'][0][0],
-            self.inference_params['original_width'][0][0],
-            self.inference_params['resize_dim'][0][0],
-            self.inference_params['iou_thres'][0][0],
-            self.inference_params['conf_thres'][0][0],
-            self.inference_params['max_det'][0][0],
-            bool(self.inference_params['agnostic_nms'][0][0]),
-            bool(self.inference_params['multi_label'][0][0]),
+            inference_params['original_height'][0][0],
+            inference_params['original_width'][0][0],
+            inference_params['resize_dim'][0][0],
+            inference_params['iou_thres'][0][0],
+            inference_params['conf_thres'][0][0],
+            inference_params['max_det'][0][0],
+            bool(inference_params['agnostic_nms'][0][0]),
+            bool(inference_params['multi_label'][0][0]),
         )
 
         return batch_boxes

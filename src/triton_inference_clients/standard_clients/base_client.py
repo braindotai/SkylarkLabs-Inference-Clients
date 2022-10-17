@@ -132,7 +132,7 @@ class BaseGRPCClient:
         return input_batch
 
 
-    def generate_request(self, inputs, *input_batches):
+    def triton_generate_request(self, inputs, *input_batches):
         for input_batch_idx, (config, input_batch) in enumerate(zip(self.input_config, input_batches)):
             if not isinstance(input_batch, np.ndarray):
                 input_batch = np.array(input_batch)
@@ -144,7 +144,7 @@ class BaseGRPCClient:
             infer_inputs.set_data_from_numpy(input_batch.astype(triton_to_np_dtype(dtype)))
             inputs.append(infer_inputs)
 
-        return input_batch.shape[0]
+        return input_batch.shape[0], self.inference_params.copy()
 
     def add_inference_params(self, inputs, batch_size, inference_params, instance_inference_params):
         if self.inference_params:
@@ -161,7 +161,7 @@ class BaseGRPCClient:
 
     def triton_inference(self, *input_batches, instance_inference_params = None):
         inputs = []
-        batch_size, inference_params = self.generate_request(inputs, *input_batches)
+        batch_size, inference_params = self.triton_generate_request(inputs, *input_batches)
         self.add_inference_params(inputs, batch_size, inference_params, instance_inference_params)
         self.request_id += 1
 
@@ -189,7 +189,7 @@ class BaseGRPCClient:
 
     def perform_inference(self, *input_batches, instance_inference_params = None):
         if INFERENCE_TYPE == 'TRITON_SERVER':
-            result = self.triton_inference(*input_batches, instance_inference_params)
+            result = self.triton_inference(*input_batches, instance_inference_params = instance_inference_params)
             
         elif INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
             result = self.monolythic_inference(*input_batches, instance_inference_params)

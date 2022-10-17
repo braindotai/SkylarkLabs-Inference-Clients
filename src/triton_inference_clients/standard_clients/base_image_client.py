@@ -18,3 +18,18 @@ class BaseImageGRPCClient(BaseGRPCClient):
         self.inference_params['split_indices'] = np.expand_dims(np.array(split_indices), 0)
 
         return len(input_batches[0])
+
+    
+    def monolythic_preprocess(self, input_batch, resize_dim):
+        return [cv2.resize(image, resize_dim) for image in input_batch]
+
+
+    def monolythic_inference(self, *input_batches, instance_inference_params = None):
+        input_batch = self.monolythic_preprocess(input_batches[0], self.inference_params['resize_dim'][0][0])
+
+        model_outputs = self.onnxruntime_session.run(
+            [self.onnxruntime_session.get_outputs()[0].name],
+            {self.onnxruntime_session.get_inputs()[0].name: input_batch}
+        )[0]
+
+        return model_outputs
