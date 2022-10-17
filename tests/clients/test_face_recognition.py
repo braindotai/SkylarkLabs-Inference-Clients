@@ -1,5 +1,5 @@
 import os
-os.environ['INFERENCE_TYPE'] = 'MONOLYTHIC_SERVER'
+# os.environ['INFERENCE_TYPE'] = 'MONOLYTHIC_SERVER'
 
 from triton_inference_clients.production_clients import FaceRecognitionGRPCClient
 import numpy as np
@@ -15,7 +15,7 @@ def test_face_recognition():
         )
     )
 
-    input_batch = np.random.random((16, 160, 160, 3)).astype('uint8')
+    input_batch = np.ones((16, 160, 160, 3)).astype('uint8') * 255
         
     embeddings = client.perform_inference(input_batch)
     

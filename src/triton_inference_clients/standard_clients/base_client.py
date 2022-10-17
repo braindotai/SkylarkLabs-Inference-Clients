@@ -142,9 +142,11 @@ class BaseGRPCClient:
             dtype = config["dataType"].replace("TYPE_", "")
             infer_inputs = grpcclient.InferInput(config['name'], input_batch.shape, dtype)
             infer_inputs.set_data_from_numpy(input_batch.astype(triton_to_np_dtype(dtype)))
+            print(config['name'], self.model_name)
             inputs.append(infer_inputs)
-
+        
         return input_batch.shape[0], self.inference_params.copy()
+
 
     def add_inference_params(self, inputs, batch_size, inference_params, instance_inference_params):
         if self.inference_params:
