@@ -83,7 +83,6 @@ class BaseGRPCClient:
             self.console.rule(f'✅ Client Initialization Completed in {time.perf_counter() - start:.4f} ✅', style = 'white')
             print()
         else:
-            assert repository_root, f'\n\nArgument `repository_root` must be provided for Monolythic inference type.\n'
             self.repository_root = repository_root
 
 
