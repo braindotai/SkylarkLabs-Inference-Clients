@@ -1,9 +1,5 @@
 import cv2
 import numpy as np
-import os
-
-INFERENCE_TYPE = os.getenv('INFERENCE_TYPE', 'MONOLYTHIC_SERVER')
-# if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
 
 
 class FaceOrientationDetection:
@@ -14,9 +10,8 @@ class FaceOrientationDetection:
             'height': 640,
             'width': 480,
             'threshold' : 0.5,
-        }
+        },
     ):
-        assert INFERENCE_TYPE == 'MONOLYTHIC_SERVER', '\n\nFace Orientation Detection client only supports monolythic inference.\n'
         self.net = cv2.dnn.readNetFromONNX(model_path)
         
         self.img_h_new, self.img_w_new, self.scale_h, self.scale_w = self.transform(inference_params['height'], inference_params['width'])

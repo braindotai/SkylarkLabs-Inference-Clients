@@ -1,1 +1,1 @@
-# Skylarklabs Triton Inference's Client Library
+# Skylarklabs Inference Client Library

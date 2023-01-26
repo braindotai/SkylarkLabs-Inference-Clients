@@ -1,14 +1,12 @@
 import numpy as np
 import os
 
-INFERENCE_TYPE = os.getenv('INFERENCE_TYPE', 'TRITON_SERVER')
+from attrdict import AttrDict
+from google.protobuf.json_format import MessageToDict
 
-if INFERENCE_TYPE == 'TRITON_SERVER':
-    from attrdict import AttrDict
-    from google.protobuf.json_format import MessageToDict
-
-    import tritonclient.grpc as grpcclient
-    from tritonclient.utils import InferenceServerException, triton_to_np_dtype
+import onnxruntime as ort
+import tritonclient.grpc as grpcclient
+from tritonclient.utils import InferenceServerException, triton_to_np_dtype
 
 from rich.table import Table
 from rich.console import Console
@@ -20,13 +18,16 @@ class BaseGRPCClient:
     def __init__(
         self,
         model_name: str,
-        repository_root = None,
+        model_repository = None,
         url: str = "0.0.0.0:8001",
         model_version: int = 1,
         inference_params: dict = None,
         **kwargs
     ) -> None:
         
+        self._inference_type = 'TRITON_SERVER'
+        self.model_repository = model_repository
+
         self.console = Console()
         self.console.rule(f'⚡ Client Initialization Started ⚡', style = 'white')
         start = time.perf_counter()
@@ -49,41 +50,67 @@ class BaseGRPCClient:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        if INFERENCE_TYPE == 'TRITON_SERVER':
-            try:
-                self.console.log("Initializing GRPC Client...")
-                self.triton_client = grpcclient.InferenceServerClient(url = url)
-            except InferenceServerException as e:
-                self.console.log(e)
-                raise
+        try:
+            self.console.log("Initializing GRPC Client...")
+            self.triton_client = grpcclient.InferenceServerClient(url = url)
+        except InferenceServerException as e:
+            self.console.log(e)
+            raise
 
-            try:
-                self.console.log("Retrieving Model Metadata...")
-                model_metadata = self.triton_client.get_model_metadata(
-                    model_name = self.model_name,
-                    model_version = self.model_version
-                )
-            except InferenceServerException as e:
-                self.console.log(e)
-                raise
+        try:
+            self.console.log("Retrieving Model Metadata...")
+            model_metadata = self.triton_client.get_model_metadata(
+                model_name = self.model_name,
+                model_version = self.model_version
+            )
+        except InferenceServerException as e:
+            self.console.log(e)
+            raise
 
-            try:
-                self.console.log("Retrieving Model Config...")
-                model_config = self.triton_client.get_model_config(
-                    model_name = self.model_name,
-                    model_version = self.model_version
-                )
-            except InferenceServerException as e:
-                self.console.log(e)
-                raise
+        try:
+            self.console.log("Retrieving Model Config...")
+            model_config = self.triton_client.get_model_config(
+                model_name = self.model_name,
+                model_version = self.model_version
+            )
+        except InferenceServerException as e:
+            self.console.log(e)
+            raise
 
-            table = self.setup_metadata(model_metadata, model_config)
+        table = self.setup_metadata(model_metadata, model_config)
 
-            self.console.print(table)
-            self.console.rule(f'✅ Client Initialization Completed in {time.perf_counter() - start:.4f} ✅', style = 'white')
-            print()
-        else:
-            self.repository_root = repository_root
+        self.console.print(table)
+        self.console.rule(f'✅ Client Initialization Completed in {time.perf_counter() - start:.4f} ✅', style = 'white')
+        print()
+
+    
+    def load_onnxruntime_session(self):
+        assert self.model_repository, '\n\nProvide `model_repository` argument when initializing the client.\n'
+        model_path = os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx')
+        assert os.path.isfile(model_path), f'\n\nNo model is found at {model_path}.\n'
+        
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+        # sess_options.inter_op_num_threads = 16
+        
+        self.onnxruntime_session = ort.InferenceSession(
+            os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx'),
+            sess_options = sess_options,
+            # providers = ['CUDAExecutionProvider' if ort.get_device() == 'GPU' else 'CPUExecutionProvider'],
+            providers = ['CPUExecutionProvider'],
+        )
+
+
+    def set_monolythic_inference(self):
+        print(f'[{self.model_name.title().replace("_", "")} changing inference type to Monolythic...]')
+        self._inference_type = 'MONOLYTHIC_SERVER'
+        self.load_onnxruntime_session()
+    
+
+    def set_triton_inference(self):
+        print(f'[{self.model_name.title().replace("_", "")} changing inference type to Triton...]')
+        self._inference_type = 'TRITON_SERVER'
 
 
     def setup_metadata(self, model_metadata, model_config):
@@ -160,6 +187,7 @@ class BaseGRPCClient:
                 infer_inputs = grpcclient.InferInput(param_name, param_batch.shape, dtype)
                 infer_inputs.set_data_from_numpy(param_batch.astype(triton_to_np_dtype(dtype)))
                 inputs.append(infer_inputs)
+
     
 
     def triton_inference(self, *input_batches, instance_inference_params = None):
@@ -191,11 +219,17 @@ class BaseGRPCClient:
     
 
     def perform_inference(self, *input_batches, instance_inference_params = None):
-        if INFERENCE_TYPE == 'TRITON_SERVER':
-            result = self.triton_inference(*input_batches, instance_inference_params = instance_inference_params)
+        if self._inference_type == 'TRITON_SERVER':
+            result = self.triton_inference(
+                *input_batches,
+                instance_inference_params = instance_inference_params
+            )
             
-        elif INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
-            result = self.monolythic_inference(*input_batches, instance_inference_params)
+        elif self._inference_type == 'MONOLYTHIC_SERVER':
+            result = self.monolythic_inference(
+                *input_batches,
+                instance_inference_params = instance_inference_params
+            )
 
         return result
     

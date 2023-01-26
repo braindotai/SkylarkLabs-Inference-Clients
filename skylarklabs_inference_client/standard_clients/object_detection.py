@@ -1,14 +1,10 @@
-import os
 import cv2
 import numpy as np
+import torch
+import torchvision
 
 from .base_client import BaseGRPCClient
 
-INFERENCE_TYPE = os.getenv('INFERENCE_TYPE', 'TRITON_SERVER')
-if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
-    import onnxruntime as ort
-    import torch
-    import torchvision
 
 
 class ObjectDetectionGRPCClient(BaseGRPCClient):
@@ -39,12 +35,6 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
     ):
         
         super().__init__(model_name = model_name, encoding_quality = encoding_quality, inference_params = inference_params, **kwargs)
-
-        if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
-            self.onnxruntime_session = ort.InferenceSession(
-                os.path.join(self.repository_root, f'{self.model_name}_model', self.model_version, 'model.onnx'),
-                providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider'],
-            )
 
         remainder = (self.inference_params['resize_dim'] % 32)
         
@@ -127,7 +117,6 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         max_wh = 4096
         max_nms = 30000
         redundant = True
-
         multi_label &= nc > 1
         merge = False
 
@@ -165,9 +154,9 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
                 i = i[:max_det]
 
             if merge and (1 < n < 3E3): 
-                iou = self._monolythic_box_iou(boxes[i], boxes) > iou_thres  
+                iou = self.box_iou(boxes[i], boxes) > iou_thres  
                 weights = iou * scores[None]  
-                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim = True) 
+                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim = True)
                 if redundant:
                     i = i[iou.sum(1) > 1]  
 
@@ -237,6 +226,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         agnostic_nms,
         multi_label,
     ):
+    
         outputs_from_model = self._monolythic_non_max_suppression(
             outputs,
             iou_thres,
@@ -254,15 +244,15 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
             resized_height = resize_dim
             resized_width = int(aspect_ratio * resize_dim)
             
-            if resized_width % 32 != 0:
-                resized_width = resized_width - (resized_width % 32) + 32
+            if resized_width % 64 != 0:
+                resized_width = resized_width - (resized_width % 64) + 64
         else:
             aspect_ratio = original_height / original_width 
             resized_width = resize_dim
             resized_height = int(aspect_ratio * resize_dim)
             
-            if resized_height % 32 != 0:
-                resized_height = resized_height - (resized_height % 32) + 32
+            if resized_height % 64 != 0:
+                resized_height = resized_height - (resized_height % 64) + 64
                 
         for output in outputs_from_model:
             if len(output):
@@ -271,6 +261,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
                 for *xyxy, _, cls_int in reversed(output):
                     c1, c2 = ((xyxy[0] / original_width), (xyxy[1] / original_height)), ((xyxy[2] / original_width), (xyxy[3] / original_height))
                     class_index = int(cls_int)
+
                     if class_index in self.inference_params['class_indices']:
                         batch_boxes.append((c1, c2))
                         batch_labels.append(class_index)
@@ -288,8 +279,11 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
 
         if instance_inference_params:
             for key, value in instance_inference_params.items():
-                inference_params[key] = value
-
+                if isinstance(value, list) or isinstance(value, tuple):
+                    inference_params[key] = np.array(value)
+                else:
+                    inference_params[key] = np.array([[value]], dtype = np.float32)
+        
         input_batch = self.monolythic_preprocess(input_batches[0][0], inference_params['resize_dim'][0][0])
 
         model_outputs = self.onnxruntime_session.run(

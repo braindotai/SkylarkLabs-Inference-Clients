@@ -46,7 +46,7 @@ class CV2ReadVideo:
         if resize:
             if isinstance(resize, tuple):
                 frame = cv2.resize(frame, resize)
-            if isinstance(resize, int):
+            if type(resize) == type(1):
                 frame = cv2.resize(frame, (resize, int(resize * (frame.shape[0] / frame.shape[1]))))
             else:
                 frame = cv2.resize(frame, (1280, int(1280 * (frame.shape[0] / frame.shape[1]))))

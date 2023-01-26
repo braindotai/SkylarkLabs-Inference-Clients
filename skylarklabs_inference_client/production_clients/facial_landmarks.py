@@ -1,8 +1,6 @@
 import os
-INFERENCE_TYPE = os.getenv('INFERENCE_TYPE', 'TRITON_SERVER')
-if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
-    import onnxruntime as ort
-    import torch
+import onnxruntime as ort
+import torch
 
 import numpy as np
 from ..standard_clients.base_image_client import BaseImageGRPCClient
@@ -27,9 +25,9 @@ class FacialLandmarksGRPCClient(BaseImageGRPCClient):
             **kwargs
         )
 
-        if INFERENCE_TYPE == 'MONOLYTHIC_SERVER':
+        if self._inference_type == 'MONOLYTHIC_SERVER':
             self.onnxruntime_session = ort.InferenceSession(
-                os.path.join(self.repository_root, f'{self.model_name}_model', self.model_version, 'model.onnx'),
+                os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx'),
                 providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider'],
             )
     
