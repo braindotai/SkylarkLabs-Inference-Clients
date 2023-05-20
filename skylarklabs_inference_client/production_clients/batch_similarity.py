@@ -16,7 +16,7 @@ class BatchSimilarityGRPCClient(BaseGRPCClient):
         )
     
 
-    def monolythic_inference(self, reference_embeddings, query_embeddings, instance_inference_params = None):
+    def monolythic_inference(self, query_embeddings, reference_embeddings, instance_inference_params = None):
         matched_indices, matched_similarities, mismatched_similarities = self.onnxruntime_session.run(
             [
                 self.onnxruntime_session.get_outputs()[0].name,
@@ -24,8 +24,8 @@ class BatchSimilarityGRPCClient(BaseGRPCClient):
                 self.onnxruntime_session.get_outputs()[2].name,
             ],
             {
-                self.onnxruntime_session.get_inputs()[0].name: reference_embeddings,
-                self.onnxruntime_session.get_inputs()[1].name: query_embeddings,
+                self.onnxruntime_session.get_inputs()[0].name: query_embeddings,
+                self.onnxruntime_session.get_inputs()[1].name: reference_embeddings,
             }
         )
 

@@ -81,6 +81,7 @@ class PerformanceMonitor:
                 ('Median', f'{np.median(a):.8f}'),
                 ('Weighted', f'{self.cumulative_runtime:.8f}'),
                 ('Fps', f'{1 / took :.8f}'),
+                ('Sample Size', f'{len(self.runtimes)}')
             ]
 
             for (metric_name, value) in self.benchmark_performance_stats:

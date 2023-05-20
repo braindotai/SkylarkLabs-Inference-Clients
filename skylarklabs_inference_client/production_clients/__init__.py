@@ -16,6 +16,7 @@ from .head_detection import HeadDetectionGRPCClient
 from .head_recognition import HeadRecognitionGRPCClient
 
 from .feature_based_tracking import FeatureBasedTrackingGRPCClient
+from .violence_detection import ViolenceDetectionGRPCClient
 
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     HeadDetectionGRPCClient,
     HeadRecognitionGRPCClient,
     FeatureBasedTrackingGRPCClient,
+    ViolenceDetectionGRPCClient,
 ]

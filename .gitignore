@@ -2,3 +2,6 @@
 *venv*
 *model.onnx*
 *assets*
+.vscode
+.idea
+.history

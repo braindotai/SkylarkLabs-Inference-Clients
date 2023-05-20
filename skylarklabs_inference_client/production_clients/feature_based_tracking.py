@@ -32,6 +32,7 @@ class FeatureBasedTrackingGRPCClient:
 
         self.track_history = []
         self.batch_similarity = BatchSimilarityGRPCClient()
+        self.batch_similarity.set_triton_inference()
 
 
     # @torch.inference_mode()
@@ -78,7 +79,8 @@ class FeatureBasedTrackingGRPCClient:
 
         for (top_left, bottom_right) in boxes:
             top_left, bottom_right = resize_box(top_left, bottom_right, (frame.shape[1], frame.shape[0]))
-            resized_image = self.aspect_ratio_resize(frame[top_left[1]: bottom_right[1], top_left[0]: bottom_right[0], :], 224)
+            # resized_image = self.aspect_ratio_resize(frame[top_left[1]: bottom_right[1], top_left[0]: bottom_right[0], :], 224)
+            resized_image = cv2.resize(frame[top_left[1]: bottom_right[1], top_left[0]: bottom_right[0], :], (224, 224))
             # cv2.imwrite(f'samples/{frame_idx}-{top_left}.jpg', cv2.cvtColor(resized_image, cv2.COLOR_RGB2BGR))
             resized_image = resized_image.astype('float32')
             resized_image = (resized_image - resized_image.min()) / resized_image.ptp()
@@ -91,6 +93,7 @@ class FeatureBasedTrackingGRPCClient:
         crops_tensor[:, :, :, 2] = (crops_tensor[:, :, :, 2] - 0.406) / 0.225
 
         crops_tensor = crops_tensor.permute(0, 3, 1, 2).cuda()
+        print(crops_tensor.min(), crops_tensor.max())
         
         with torch.inference_mode():
             query_features = self.feature_extractor(crops_tensor)

@@ -28,15 +28,15 @@ class BaseGRPCClient:
         self._inference_type = 'TRITON_SERVER'
         self.model_repository = model_repository
 
-        self.console = Console()
-        self.console.rule(f'⚡ Client Initialization Started ⚡', style = 'white')
-        start = time.perf_counter()
-
         self.model_name = model_name
         self.model_version = str(model_version)
         self.request_id = -1
-        
+        self.url = url
+
+        self.console = Console()
+
         self.inference_params = inference_params
+
         if inference_params:
             self.inference_params_dtypes = []
             
@@ -46,13 +46,45 @@ class BaseGRPCClient:
                 else:
                     self.inference_params[key] = np.array([[value]], dtype = np.float32)
 
-        
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    
+    def load_onnxruntime_session(self):
+        assert self.model_repository, '\n\nProvide `model_repository` argument when initializing the client.\n'
+        model_path = os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx')
+        assert os.path.isfile(model_path), f'\n\nNo model is found at {model_path}.\n'
+        
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        
+        self.onnxruntime_session = ort.InferenceSession(
+            os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx'),
+            sess_options = sess_options,
+            providers = ['CUDAExecutionProvider' if ort.get_device() == 'GPU' else 'CPUExecutionProvider'],
+            # providers = ['CUDAExecutionProvider'],
+            # providers = ['CPUExecutionProvider'],
+        )
+
+
+    def set_monolythic_inference(self):
+        self._inference_type = 'MONOLYTHIC_SERVER'
+        start = time.perf_counter()
+        self.console.rule(f'🚀 {self.model_name.title().replace("_", " ")} Client Monolythic Initialization Started 🚀', style = 'white', align = 'left')
+        self.load_onnxruntime_session()
+        self.console.rule(f'✅ Client Initialization Completed in {time.perf_counter() - start:.4f} ✅', style = 'white', align = 'left')
+        print()
+    
+
+    def set_triton_inference(self):
+        self._inference_type = 'TRITON_SERVER'
+
+        self.console.rule(f'🚀 {self.model_name.title().replace("_", " ")} Client Triton Initialization Started 🚀', style = 'white', align = 'left')
+        start = time.perf_counter()
+
         try:
             self.console.log("Initializing GRPC Client...")
-            self.triton_client = grpcclient.InferenceServerClient(url = url)
+            self.triton_client = grpcclient.InferenceServerClient(url = self.url)
         except InferenceServerException as e:
             self.console.log(e)
             raise
@@ -80,37 +112,8 @@ class BaseGRPCClient:
         table = self.setup_metadata(model_metadata, model_config)
 
         self.console.print(table)
-        self.console.rule(f'✅ Client Initialization Completed in {time.perf_counter() - start:.4f} ✅', style = 'white')
+        self.console.rule(f'✅ Client Initialization Completed in {time.perf_counter() - start:.4f} ✅', style = 'white', align = "left")
         print()
-
-    
-    def load_onnxruntime_session(self):
-        assert self.model_repository, '\n\nProvide `model_repository` argument when initializing the client.\n'
-        model_path = os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx')
-        assert os.path.isfile(model_path), f'\n\nNo model is found at {model_path}.\n'
-        
-        sess_options = ort.SessionOptions()
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        # sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-        # sess_options.inter_op_num_threads = 16
-        
-        self.onnxruntime_session = ort.InferenceSession(
-            os.path.join(self.model_repository, f'{self.model_name}_model', self.model_version, 'model.onnx'),
-            sess_options = sess_options,
-            # providers = ['CUDAExecutionProvider' if ort.get_device() == 'GPU' else 'CPUExecutionProvider'],
-            providers = ['CPUExecutionProvider'],
-        )
-
-
-    def set_monolythic_inference(self):
-        print(f'[{self.model_name.title().replace("_", "")} changing inference type to Monolythic...]')
-        self._inference_type = 'MONOLYTHIC_SERVER'
-        self.load_onnxruntime_session()
-    
-
-    def set_triton_inference(self):
-        print(f'[{self.model_name.title().replace("_", "")} changing inference type to Triton...]')
-        self._inference_type = 'TRITON_SERVER'
 
 
     def setup_metadata(self, model_metadata, model_config):
@@ -188,7 +191,6 @@ class BaseGRPCClient:
                 infer_inputs.set_data_from_numpy(param_batch.astype(triton_to_np_dtype(dtype)))
                 inputs.append(infer_inputs)
 
-    
 
     def triton_inference(self, *input_batches, instance_inference_params = None):
         inputs = []

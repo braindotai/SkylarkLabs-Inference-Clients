@@ -4,7 +4,7 @@ import torch
 import torchvision
 
 from .base_client import BaseGRPCClient
-
+import dxeon as dx
 
 
 class ObjectDetectionGRPCClient(BaseGRPCClient):
@@ -77,6 +77,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         image,
         resize_dim,
     ):  
+
         shape = image.shape[:2]
         new_shape = (resize_dim, resize_dim)
         r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
@@ -95,9 +96,12 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
         image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value = (114, 114, 114)).astype('float32') / 255.0
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        batch = np.expand_dims(np.transpose(image, (2, 0, 1)), axis = 0)
+    
+        return np.transpose(image, (2, 0, 1))
+    
+        # batch = np.expand_dims(np.transpose(image, (2, 0, 1)), axis = 0)
 
-        return batch
+        # return batch
     
 
     def _monolythic_non_max_suppression(
@@ -126,6 +130,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
             x = x[xc[xi]]
 
             if not x.shape[0]:
+                output.append([])
                 continue
 
             x[:, 5:] *= x[:, 4:5]
@@ -209,10 +214,8 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         
         return inter / (area1[:, None] + area2 - inter)
 
-
     def _monolythic_box_area(self, box):
         return (box[2] - box[0]) * (box[3] - box[1])
-    
 
     def monolythic_postprocess(
         self,
@@ -237,7 +240,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
         )
         batch_boxes = []
         batch_labels = []
-        batch_boxes_split_indices = []
+        batch_split_indices = []
         
         if original_height > original_width:
             aspect_ratio = original_width / original_height
@@ -253,7 +256,7 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
             
             if resized_height % 64 != 0:
                 resized_height = resized_height - (resized_height % 64) + 64
-                
+
         for output in outputs_from_model:
             if len(output):
                 output[:, :4] = self._monolythic_scale_coords((resized_height, resized_width), output[:, :4], (original_height, original_width, 3)).round()                
@@ -265,16 +268,17 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
                     if class_index in self.inference_params['class_indices']:
                         batch_boxes.append((c1, c2))
                         batch_labels.append(class_index)
-            
-            batch_boxes_split_indices.append(len(batch_boxes))
-        
-        batch_boxes = np.split(batch_boxes, batch_boxes_split_indices)[:-1]
-        batch_labels = np.split(batch_labels, batch_boxes_split_indices)[:-1]
 
+                batch_split_indices.append(len(batch_boxes))
+            else:
+                batch_split_indices.append(len(batch_boxes))
+        
+        batch_boxes = np.split(np.array(batch_boxes), batch_split_indices)[:-1]
+        batch_labels = np.split(np.array(batch_labels), batch_split_indices)[:-1]
+        
         return batch_boxes, batch_labels
 
-
-    def monolythic_inference(self, *input_batches, instance_inference_params = None):
+    def monolythic_inference(self, input_batch, instance_inference_params = None):
         inference_params = self.inference_params.copy()
 
         if instance_inference_params:
@@ -284,14 +288,14 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
                 else:
                     inference_params[key] = np.array([[value]], dtype = np.float32)
         
-        input_batch = self.monolythic_preprocess(input_batches[0][0], inference_params['resize_dim'][0][0])
+        input_batch = [self.monolythic_preprocess(image, inference_params['resize_dim'][0][0]) for image in input_batch]
 
         model_outputs = self.onnxruntime_session.run(
             [self.onnxruntime_session.get_outputs()[0].name],
             {self.onnxruntime_session.get_inputs()[0].name: input_batch}
         )[0]
 
-        batch_boxes = self.monolythic_postprocess(
+        batch_boxes, batch_labels = self.monolythic_postprocess(
             model_outputs,
             inference_params['original_height'][0][0],
             inference_params['original_width'][0][0],
@@ -303,4 +307,10 @@ class ObjectDetectionGRPCClient(BaseGRPCClient):
             bool(inference_params['multi_label'][0][0]),
         )
 
-        return batch_boxes
+        # dx.debug(f"{self.model_name} inference is done")
+        # dx.debug(f"len(batch_boxes) - {len(batch_boxes)}")
+        # dx.debug(f"len(batch_labels) - {len(batch_labels)}")
+        # dx.debug(f"batch_boxes[0].shape - {batch_boxes[0].shape}")
+        # dx.debug(f"batch_labels[0].shape - {batch_labels[0].shape}")
+
+        return batch_boxes, batch_labels

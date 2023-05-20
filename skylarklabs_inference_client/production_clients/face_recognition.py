@@ -10,7 +10,7 @@ class FaceRecognitionGRPCClient(BaseImageGRPCClient):
             joined_encodings = None,
             split_indices = None,
         ),
-        resize_dims = (160, 160),
+        resize_dims = (112, 112),
         **kwargs
     ):
         super().__init__(
@@ -26,6 +26,7 @@ class FaceRecognitionGRPCClient(BaseImageGRPCClient):
         input_batch /= 255.0
         input_batch *= 2.0
         input_batch -= 1.0
+
         input_batch = np.transpose(input_batch, (0, 3, 1, 2))
         input_batch = input_batch[:, [2, 1, 0], :, :]
 

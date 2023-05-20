@@ -38,7 +38,7 @@ class BaseImageGRPCClient(BaseGRPCClient):
 
     def monolythic_inference(self, *input_batches, instance_inference_params = None):
         input_batch = self.monolythic_preprocess(input_batches[0])
-
+        
         model_outputs = (self.onnxruntime_session.run(
             [self.onnxruntime_session.get_outputs()[0].name],
             {self.onnxruntime_session.get_inputs()[0].name: input_batch}

@@ -2,6 +2,7 @@ from typing import Optional
 import cv2
 import time
 import numpy as np
+import imutils
 
 
 class CV2ReadVideo:
